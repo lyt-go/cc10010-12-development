@@ -617,3 +617,39 @@ SEED_ROWS: dict[str, list[dict[str, Any]]] = {
   '审批人': '发布计划样例3',
   '发布状态': '发布计划样例3'}]
 }
+
+# ---------------------------------------------------------------------------
+# 分区级运行水位示例：RUNT-0002 共 6 个分区，p001~p004 成功、p005 失败，
+# 最后稳定分区 p004、断点分区 p005。另保留一条被拒绝的迟到旧事件，
+# 演示跨进程迟到结果与当前水位冲突时的留痕处理。
+# ---------------------------------------------------------------------------
+SEED_ROWS["runtime_partition_event"] = [
+    {'id': 1, 'run_id': 2, 'partition_no': 'p001', 'partition_index': 1, 'seq': 1,
+     'result': '成功', 'read_rows': 120, 'write_rows': 118, 'request_id': 'seed-r2-p1',
+     'effective': True, 'reject_reason': None, 'created_at': '2026-09-02 09:01:00'},
+    {'id': 2, 'run_id': 2, 'partition_no': 'p002', 'partition_index': 2, 'seq': 1,
+     'result': '成功', 'read_rows': 135, 'write_rows': 133, 'request_id': 'seed-r2-p2',
+     'effective': True, 'reject_reason': None, 'created_at': '2026-09-02 09:02:00'},
+    {'id': 3, 'run_id': 2, 'partition_no': 'p003', 'partition_index': 3, 'seq': 1,
+     'result': '成功', 'read_rows': 98, 'write_rows': 96, 'request_id': 'seed-r2-p3',
+     'effective': True, 'reject_reason': None, 'created_at': '2026-09-02 09:03:00'},
+    {'id': 4, 'run_id': 2, 'partition_no': 'p004', 'partition_index': 4, 'seq': 1,
+     'result': '成功', 'read_rows': 150, 'write_rows': 148, 'request_id': 'seed-r2-p4',
+     'effective': True, 'reject_reason': None, 'created_at': '2026-09-02 09:04:00'},
+    {'id': 5, 'run_id': 2, 'partition_no': 'p005', 'partition_index': 5, 'seq': 1,
+     'result': '失败', 'read_rows': 60, 'write_rows': 0, 'request_id': 'seed-r2-p5',
+     'effective': True, 'reject_reason': None, 'created_at': '2026-09-02 09:05:00'},
+    {'id': 6, 'run_id': 2, 'partition_no': 'p003', 'partition_index': 3, 'seq': 1,
+     'result': '成功', 'read_rows': 98, 'write_rows': 96, 'request_id': 'seed-r2-p3-late',
+     'effective': False,
+     'reject_reason': '迟到旧事件 seq=1 不大于当前水位 seq=1，按分区单调规则拒绝，水位保持不变',
+     'created_at': '2026-09-02 09:09:00'},
+]
+
+SEED_ROWS["runtime_watermark"] = [
+    {'id': 1, 'run_id': 2, 'record_no': 'RUNT-0002', 'partition_total': 6,
+     'version': 5, 'updated_at': '2026-09-02 09:05:00'},
+]
+
+SEED_ROWS["runtime_process_session"] = []
+SEED_ROWS["rerun_partition_event"] = []

@@ -74,5 +74,56 @@ npm run dev
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
 
+## 分区级运行水位与断点交接
+
+运行实例不再只有整体状态，而是按分区维护运行水位与断点，异常重跑只从中断分区继续。
+
+### 数据与规则（`app/services/partition.py`）
+
+- **运行分区进度事件**（内部表 `runtime_partition_event`，只追加不删改）：
+  字段含 `partition_no`（p001 形式）、单调序号 `seq`、`result`（成功/失败）、
+  `read_rows`、`write_rows`、`request_id`。
+- **运行水位与断点数据快照**（内部表 `runtime_watermark`，每次事件推进一个 `version`）：
+  - 最后稳定分区：从 p001 起连续成功的最长前缀末位；
+  - 断点分区：第一个未成功的分区（失败或尚未上报），全部成功则为空；
+  - 累计读取/写入行数由各分区最新生效事件汇总。
+- **同请求重复提交只生效一次**：相同 `request_id` 直接幂等返回 `duplicate`，行数不重复累计。
+- **跨进程迟到事件冲突拒绝**：同分区只接受更大的 `seq`；旧 `seq` 事件标记
+  `effective=false` 并写明拒绝原因，历史记录保留，水位绝不回退。被新 `seq` 取代的
+  旧事件同样留痕但不再计入水位。
+- **同一事务落库**：事件、水位、读取/写入行数与执行状态在 `store.transaction()`
+  内一起提交，任何一步抛异常整体回滚（深拷贝快照 + 锁，模拟数据库本地事务）。
+- **进程断线重连**：`process-sessions` 交接最后稳定分区，新进程从断点分区继续。
+
+### 接口
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/runtime/{id}/partition-events` | 上报运行分区进度，返回 `outcome`（applied/duplicate/conflict）与最新水位 |
+| GET | `/api/runtime/{id}/watermark` | 读取运行水位与断点数据快照 |
+| GET | `/api/runtime/{id}/partition-events` | 分区事件全量历史（含被拒绝、被取代事件） |
+| POST | `/api/runtime/{id}/process-sessions` | 进程断线重连，交接最后稳定分区与恢复起点 |
+| POST | `/api/rerun/{id}/actions`（启动重跑） | 消费水位快照，冻结重跑范围为未完成分区 |
+| POST | `/api/rerun/{id}/partition-events` | 上报重跑分区进度，范围外分区一律拒绝 |
+| GET | `/api/rerun/{id}/progress` | 重跑恢复进度与累计读取/写入行数 |
+| GET | `/api/rerun/{id}/partition-events` | 重跑分区事件历史，行数可逐条回查 |
+
+### 重跑恢复口径
+
+- 启动重跑时把水位快照（含断点分区、未完成分区列表、当时行数、`watermark_version`）
+  冻结到重跑任务上，之后原始运行再迟到事件也不会改变本次重跑写入范围；
+- 重跑只接受快照圈定的未完成分区，已成功分区不在写入范围；
+- 历史运行没有分区水位时保留旧口径（按重跑区间整段覆盖），不阻断老流程；
+- 运行实例刷新、返回、重新进入详情或再次读取时，执行状态与水位由同一份快照同步，
+  原断点与读取/写入行数保留且可核对。
+
+### 验收测试
+
+```bash
+cd backend
+.venv/bin/python -m unittest discover -s tests     # 16 个单元用例
+.venv/bin/python tests/http_smoke.py              # 真实 HTTP 端到端冒烟
+```
+
 领域：数据工程
 子方向：数仓与数据湖

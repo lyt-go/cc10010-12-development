@@ -30,6 +30,13 @@ def list_entries(
     return PageResult(items=items, total=total, page=page, size=size)
 
 
+@router.get("/export")
+def export_entries() -> dict[str, Any]:
+    """导出异常重跑清单：返回当前过滤条件下的全量数据。"""
+    items, total = service.list_entries(page=1, size=10000)
+    return {"module": "rerun", "total": total, "items": items}
+
+
 @router.get("/{entry_id}", response_model=dict)
 def get_entry(entry_id: int) -> dict:
     """读取单条重跑任务明细；不存在时给出可读的错误说明。"""
@@ -58,8 +65,28 @@ def run_action(entry_id: int, payload: EntryPayload) -> ActionResult:
     return ActionResult(ok=True, message=message, entry=entry)
 
 
-@router.get("/export")
-def export_entries() -> dict[str, Any]:
-    """导出异常重跑清单：返回当前过滤条件下的全量数据。"""
-    items, total = service.list_entries(page=1, size=10000)
-    return {"module": "rerun", "total": total, "items": items}
+@router.post("/{entry_id}/partition-events", response_model=ActionResult)
+def report_partition_event(entry_id: int, payload: EntryPayload) -> ActionResult:
+    """上报重跑分区进度：只接受断点快照圈定的未完成分区，行数同事务累计可回查。"""
+    result, message = service.report_partition(entry_id, payload.values)
+    if result is None:
+        return ActionResult(ok=False, message=message)
+    return ActionResult(ok=True, message=message, entry=result)
+
+
+@router.get("/{entry_id}/progress", response_model=dict)
+def get_progress(entry_id: int) -> dict[str, Any]:
+    """读取重跑断点恢复进度与累计读取、写入行数。"""
+    progress = service.get_progress(entry_id)
+    if progress is None:
+        raise HTTPException(status_code=404, detail=f"重跑任务 {entry_id} 不存在或已归档")
+    return progress
+
+
+@router.get("/{entry_id}/partition-events", response_model=dict)
+def list_partition_events(entry_id: int) -> dict[str, Any]:
+    """返回重跑全部分区进度事件（含重复、被拒绝的迟到事件），行数可逐条核对。"""
+    events = service.list_partition_events(entry_id)
+    if events is None:
+        raise HTTPException(status_code=404, detail=f"重跑任务 {entry_id} 不存在或已归档")
+    return {"rerun_id": entry_id, "total": len(events), "items": events}

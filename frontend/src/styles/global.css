@@ -33,3 +33,23 @@ body { margin: 0; background: #f6f8fb; color: #1f2937; }
 .link { border: none; background: none; color: var(--brand); cursor: pointer; padding: 0; }
 .page-foot { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .error-text { color: #b42318; }
+.ok-text { color: #067647; }
+.detail-panel { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin: 12px 0; }
+.detail-panel h3 { margin: 0 0 10px; font-size: 15px; }
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 16px; font-size: 13px; }
+.detail-grid span { color: var(--muted); display: block; font-size: 12px; }
+.partition-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 10px; }
+.partition-card { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 12px; background: #f8fafc; }
+.partition-card strong { display: block; font-size: 13px; margin-bottom: 4px; }
+.partition-card.state-成功 { border-left: 4px solid #12b76a; }
+.partition-card.state-失败 { border-left: 4px solid #f04438; }
+.partition-card.state-待处理 { border-left: 4px solid #98a2b3; }
+.report-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; align-items: end; margin-top: 10px; }
+.report-form label span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.report-form input, .report-form select { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; }
+.event-list { max-height: 280px; overflow: auto; margin-top: 10px; }
+.event-list table { font-size: 12px; }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+.tag-applied { background: #d1fadf; color: #05603a; }
+.tag-duplicate { background: #e4e7ec; color: #475467; }
+.tag-conflict { background: #fee4e2; color: #b42318; }
